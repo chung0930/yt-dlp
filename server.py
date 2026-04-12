@@ -82,31 +82,33 @@ def download_task(task_id, mode, url):
         task_dir = os.path.join(TEMP_PATH, task_id)
         os.makedirs(task_dir)
 
-        # 1. 獲取標題
-        log_info(f"Task {task_id}: Fetching info for URL: {url}")
-        info_cmd = ["yt-dlp", "--get-filename", "-o", "%(playlist_title,title)s", url]
-        result = subprocess.run(info_cmd, capture_output=True, text=True, env=os.environ)
-        raw_name = result.stdout.strip().split('\n')[0]
-        safe_name = re.sub(r'[\\/*?:"<>|]', "", raw_name) or f"download_{task_id}"
-        log_info(f"Task {task_id}: Target safe name: {safe_name}")
+        # 1. 獲取正確的專輯/清單標題 (用於最後打包命名)
+        log_info(f"Task {task_id}: Fetching playlist/album info for URL: {url}")
+        # 獲取播放清單標題
+        pl_cmd = ["yt-dlp", "--get-filename", "-o", "%(playlist_title,title)s", url]
+        pl_result = subprocess.run(pl_cmd, capture_output=True, text=True, env=os.environ)
+        raw_pl_name = pl_result.stdout.strip().split('\n')[0]
+        safe_pl_name = re.sub(r'[\\/*?:"<>|]', "", raw_pl_name) or f"download_{task_id}"
 
-        # 2. 構建下載指令 (移除 --non-interactive 以確保相容性)
+        # 2. 獲取所有歌曲的標題清單 (用於最後重新命名)
+        log_info(f"Task {task_id}: Fetching track titles...")
+        # 我們讓 yt-dlp 同時下載並輸出一個簡單的 index 作為檔名，避開 ffmpeg 在 Android 上的路徑解析問題
+        # 這是最關鍵的一步：使用極簡檔名下載，繞過括號、空格與中文字元導致的 Invalid argument
+        
         cmd = ["yt-dlp", "--newline", "--progress"]
         
-        # 輸出模板
+        # 輸出模板：使用極簡檔名 track_01, track_02...
+        # 這樣 ffmpeg 在處理 Postprocessing 時就不會因為檔名特殊字元而報錯
+        output_tmpl = os.path.join(task_dir, "track_%(playlist_index)03d.%(ext)s")
         if mode in ["2", "4"]: # 單一檔案
-            output_tmpl = os.path.join(task_dir, "%(title)s.%(ext)s")
-        else: # 播放清單/專輯
-            output_tmpl = os.path.join(task_dir, "%(playlist_index)02d - %(title)s.%(ext)s")
+            output_tmpl = os.path.join(task_dir, "single_track.%(ext)s")
 
         if mode in ["1", "2", "3"]: # 音樂模式
             cmd += [
                 "-x", "--audio-format", "mp3", "--audio-quality", "320k",
-                "--embed-thumbnail", "--add-metadata"
+                "--embed-thumbnail", "--add-metadata",
+                "--ppa", "ThumbnailsConvertor:-vf crop=ih:ih"
             ]
-            # 封面處理: 採用更相容的 ffmpeg 傳遞方式
-            cmd += ["--postprocessor-args", "ffmpeg:-vf crop=ih:ih"]
-            
             if mode in ["1", "3"]: cmd += ["--yes-playlist"]
             if mode == "1": cmd += ["--parse-metadata", "playlist_index:%(track_number)s"]
         
@@ -123,18 +125,14 @@ def download_task(task_id, mode, url):
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', env=os.environ)
         
         for line in process.stdout:
-            # 解析進度
             match = re.search(r'(\d+\.\d+)%', line)
             if match: TASKS[task_id]['progress'] = match.group(1)
-            
             speed_match = re.search(r'at\s+([\d\.]+\w+/s)', line)
             if speed_match: TASKS[task_id]['speed'] = speed_match.group(1)
-            
             eta_match = re.search(r'ETA\s+(\d+:\d+)', line)
             if eta_match: TASKS[task_id]['eta'] = eta_match.group(1)
-            
             error_output.append(line.strip())
-            if len(error_output) > 30: error_output.pop(0)
+            if len(error_output) > 20: error_output.pop(0)
 
         process.wait()
         
@@ -142,19 +140,44 @@ def download_task(task_id, mode, url):
             full_error = "\n".join(error_output[-5:])
             raise Exception(f"yt-dlp exited with code {process.returncode}. Detail: {full_error}")
 
-        # 3. 處理下載後的檔案
+        # 3. 下載完成後，使用 Python 進行安全重新命名
+        log_info(f"Task {task_id}: Download finished. Re-mapping titles safely...")
+        # 獲取實際標題清單
+        title_cmd = ["yt-dlp", "--get-filename", "-o", "%(playlist_index)03d|%(title)s", url]
+        title_result = subprocess.run(title_cmd, capture_output=True, text=True, env=os.environ)
+        title_map = {}
+        for line in title_result.stdout.strip().split('\n'):
+            if '|' in line:
+                idx, title = line.split('|', 1)
+                title_map[idx] = re.sub(r'[\\/*?:"<>|]', "", title)
+
+        downloaded_files = os.listdir(task_dir)
+        for f in downloaded_files:
+            ext = os.path.splitext(f)[1]
+            if f.startswith("track_"):
+                idx = f.replace("track_", "").replace(ext, "")
+                if idx in title_map:
+                    new_name = f"{idx} - {title_map[idx]}{ext}"
+                    os.rename(os.path.join(task_dir, f), os.path.join(task_dir, new_name))
+            elif f == f"single_track{ext}":
+                # 單曲模式獲取標題
+                st_cmd = ["yt-dlp", "--get-filename", "-o", "%(title)s", url]
+                st_result = subprocess.run(st_cmd, capture_output=True, text=True, env=os.environ)
+                st_name = re.sub(r'[\\/*?:"<>|]', "", st_result.stdout.strip())
+                os.rename(os.path.join(task_dir, f), os.path.join(task_dir, f"{st_name}{ext}"))
+
+        # 4. 打包與傳送
         files = os.listdir(task_dir)
-        if not files: raise Exception("No files found after download.")
+        if not files: raise Exception("No files found after processing.")
 
         if len(files) > 1 or mode in ["1", "3", "5"]:
-            archive_name = f"{safe_name}.zip"
+            archive_name = f"{safe_pl_name}.zip"
             archive_path = os.path.join(TEMP_PATH, archive_name)
             subprocess.run(["zip", "-r", "-j", archive_path, task_dir], env=os.environ)
             TASKS[task_id]['file'] = archive_name
         else:
-            final_ext = os.path.splitext(files[0])[1]
-            final_name = f"{safe_name}{final_ext}"
-            os.rename(os.path.join(task_dir, files[0]), os.path.join(TEMP_PATH, final_name))
+            final_name = files[0]
+            os.rename(os.path.join(task_dir, final_name), os.path.join(TEMP_PATH, final_name))
             TASKS[task_id]['file'] = final_name
 
         TASKS[task_id]['status'] = 'completed'
@@ -200,5 +223,5 @@ def get_error_report():
 if __name__ == "__main__":
     if not os.path.exists(BASE_PATH): os.makedirs(BASE_PATH)
     if not os.path.exists(TEMP_PATH): os.makedirs(TEMP_PATH)
-    log_info("Server v2.5 Final Version Started.")
+    log_info("Server v2.6 Ultimate Version Started.")
     app.run(host='0.0.0.0', port=5000, threaded=True)
