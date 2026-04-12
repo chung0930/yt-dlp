@@ -30,7 +30,7 @@ def log_info(msg):
     logging.info(msg)
     print(f"INFO: {msg}")
 
-# 設定 Termux 環境變數路徑 (這點對 Termux 非常重要)
+# 設定 Termux 環境變數路徑
 TERMUX_BIN = "/data/data/com.termux/files/usr/bin"
 os.environ["PATH"] = f"{TERMUX_BIN}:{os.environ.get('PATH', '')}"
 
@@ -40,7 +40,6 @@ def check_dependencies():
     missing = []
     for dep in deps:
         if shutil.which(dep) is None:
-            # 嘗試在 Termux 標準路徑找
             if not os.path.exists(os.path.join(TERMUX_BIN, dep)):
                 missing.append(dep)
     if missing:
@@ -77,7 +76,7 @@ def extract_urls(raw_text):
 # 核心下載邏輯
 def download_task(task_id, mode, url):
     TASKS[task_id]['status'] = 'processing'
-    error_output = [] # 用於捕捉詳細錯誤訊息
+    error_output = []
     try:
         if not os.path.exists(TEMP_PATH): os.makedirs(TEMP_PATH)
         task_dir = os.path.join(TEMP_PATH, task_id)
@@ -91,8 +90,8 @@ def download_task(task_id, mode, url):
         safe_name = re.sub(r'[\\/*?:"<>|]', "", raw_name) or f"download_{task_id}"
         log_info(f"Task {task_id}: Target safe name: {safe_name}")
 
-        # 2. 構建下載指令
-        cmd = ["yt-dlp", "--newline", "--progress", "--non-interactive"]
+        # 2. 構建下載指令 (移除 --non-interactive 以確保相容性)
+        cmd = ["yt-dlp", "--newline", "--progress"]
         
         # 輸出模板
         if mode in ["2", "4"]: # 單一檔案
@@ -105,8 +104,8 @@ def download_task(task_id, mode, url):
                 "-x", "--audio-format", "mp3", "--audio-quality", "320k",
                 "--embed-thumbnail", "--add-metadata"
             ]
-            # 針對 Termux 環境，採用最安全的封面處理參數
-            cmd += ["--ppa", "ThumbnailsConvertor:-vf crop=ih:ih"]
+            # 封面處理: 採用更相容的 ffmpeg 傳遞方式
+            cmd += ["--postprocessor-args", "ffmpeg:-vf crop=ih:ih"]
             
             if mode in ["1", "3"]: cmd += ["--yes-playlist"]
             if mode == "1": cmd += ["--parse-metadata", "playlist_index:%(track_number)s"]
@@ -121,7 +120,6 @@ def download_task(task_id, mode, url):
         cmd += ["-o", output_tmpl, url]
 
         log_info(f"Task {task_id}: Executing cmd: {' '.join(cmd)}")
-        # 啟動子程序，同時捕捉 stdout 和 stderr
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', env=os.environ)
         
         for line in process.stdout:
@@ -135,22 +133,18 @@ def download_task(task_id, mode, url):
             eta_match = re.search(r'ETA\s+(\d+:\d+)', line)
             if eta_match: TASKS[task_id]['eta'] = eta_match.group(1)
             
-            # 記錄所有輸出，以便在出錯時診斷
             error_output.append(line.strip())
-            if len(error_output) > 50: error_output.pop(0) # 只保留最後 50 行
+            if len(error_output) > 30: error_output.pop(0)
 
         process.wait()
         
         if process.returncode != 0:
-            # 如果失敗，將最後的 stderr 輸出作為錯誤原因
             full_error = "\n".join(error_output[-5:])
             raise Exception(f"yt-dlp exited with code {process.returncode}. Detail: {full_error}")
 
         # 3. 處理下載後的檔案
         files = os.listdir(task_dir)
         if not files: raise Exception("No files found after download.")
-
-        log_info(f"Task {task_id}: Download finished. Preparing delivery...")
 
         if len(files) > 1 or mode in ["1", "3", "5"]:
             archive_name = f"{safe_name}.zip"
@@ -170,7 +164,6 @@ def download_task(task_id, mode, url):
     except Exception as e:
         log_error(f"Task {task_id} failed: {str(e)}")
         TASKS[task_id]['status'] = 'failed'
-        # 將詳細錯誤回傳給前端
         TASKS[task_id]['error'] = str(e)
 
 @app.route('/download', methods=['POST'])
@@ -207,5 +200,5 @@ def get_error_report():
 if __name__ == "__main__":
     if not os.path.exists(BASE_PATH): os.makedirs(BASE_PATH)
     if not os.path.exists(TEMP_PATH): os.makedirs(TEMP_PATH)
-    log_info("Server v2.4 Debug Version Started.")
+    log_info("Server v2.5 Final Version Started.")
     app.run(host='0.0.0.0', port=5000, threaded=True)
