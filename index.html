@@ -3,25 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Termux yt-dlp 終極下載器 v2.0</title>
+    <title>Termux yt-dlp 終極下載器 v2.1</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f0f2f5; font-family: 'Segoe UI', 'Noto Sans TC', sans-serif; }
-        .container { max-width: 850px; margin-top: 40px; margin-bottom: 40px; }
+        .container { max-width: 900px; margin-top: 40px; margin-bottom: 40px; }
         .card { border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: none; overflow: hidden; }
-        .card-header { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border: none; font-weight: 800; text-align: center; font-size: 1.8rem; padding: 25px; }
+        .card-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; font-weight: 800; text-align: center; font-size: 1.8rem; padding: 25px; }
         .card-body { padding: 35px; background: white; }
         .form-label { font-weight: 600; color: #4a5568; margin-bottom: 8px; }
         .form-control, .form-select { border-radius: 12px; border: 1.5px solid #e2e8f0; padding: 12px 18px; transition: all 0.3s; }
-        .form-control:focus, .form-select:focus { border-color: #4facfe; box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.15); }
-        .btn-primary { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border: none; border-radius: 12px; padding: 14px; font-weight: 700; font-size: 1.1rem; transition: transform 0.2s; }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(79, 172, 254, 0.3); }
-        .progress { height: 30px; border-radius: 15px; margin-top: 25px; display: none; background-color: #edf2f7; overflow: hidden; }
-        .progress-bar { background: linear-gradient(90deg, #4facfe, #00f2fe); font-weight: bold; }
+        .form-control:focus, .form-select:focus { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15); }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 12px; padding: 14px; font-weight: 700; font-size: 1.1rem; transition: transform 0.2s; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3); }
         #login-section { display: block; }
         #download-section { display: none; }
-        .status-info { font-size: 1rem; color: #718096; margin-top: 15px; font-weight: 500; }
-        .alert-error { background-color: #fff5f5; border-left: 4px solid #f56565; color: #c53030; padding: 15px; border-radius: 8px; margin-top: 20px; display: none; }
+        .task-item { border: 1px solid #edf2f7; border-radius: 15px; padding: 20px; margin-top: 20px; background: #fafafa; }
+        .progress { height: 25px; border-radius: 12px; background-color: #edf2f7; overflow: hidden; margin-top: 10px; }
+        .progress-bar { background: linear-gradient(90deg, #667eea, #764ba2); font-weight: bold; }
+        .status-text { font-size: 0.9rem; color: #718096; margin-top: 10px; font-weight: 500; }
         .server-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; background: #ebf8ff; color: #3182ce; margin-bottom: 15px; font-weight: 600; }
     </style>
 </head>
@@ -45,19 +45,18 @@
 
         <!-- 下載介面 -->
         <div id="download-section" class="card">
-            <div class="card-header">🚀 終極下載器 v2.0</div>
+            <div class="card-header">🚀 終極下載器 v2.1</div>
             <div class="card-body">
                 <div class="server-badge">伺服器狀態：連線中...</div>
                 
                 <div class="mb-4">
                     <label class="form-label">後端伺服器 URL (Serveo)</label>
                     <input type="text" id="server-url" class="form-control" placeholder="例如: https://xxxx.serveo.net" value="">
-                    <small class="text-muted">提示：程式碼中已可預填，目前為空白供手動輸入或程式填寫。</small>
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label">YouTube / YT Music 連結</label>
-                    <textarea id="url" class="form-control" rows="3" placeholder="請貼上連結 (支援影片、播放清單、專輯)"></textarea>
+                    <label class="form-label">YouTube / YT Music 連結 (支援連貼多個網址)</label>
+                    <textarea id="url" class="form-control" rows="4" placeholder="直接貼上連結，系統會自動拆分 https://..."></textarea>
                 </div>
 
                 <div class="mb-4">
@@ -73,16 +72,8 @@
 
                 <button onclick="startDownload()" id="dl-btn" class="btn btn-primary w-100">開始下載任務</button>
 
-                <div class="progress" id="progress-container">
-                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;">0%</div>
-                </div>
-
-                <div id="status-info" class="status-info text-center"></div>
-                <div id="alert-error" class="alert-error"></div>
-
-                <div id="result-link" class="mt-4 text-center" style="display: none;">
-                    <a id="download-btn" class="btn btn-success w-100 py-3 font-weight-bold" style="border-radius: 12px; font-size: 1.2rem; background: #48bb78; border: none;">✅ 下載完成！點擊取得檔案</a>
-                </div>
+                <!-- 任務清單容器 -->
+                <div id="tasks-container"></div>
                 
                 <div class="mt-4 text-center">
                     <a href="#" onclick="getErrorLog()" class="text-muted text-decoration-none small">查看錯誤報告</a>
@@ -93,41 +84,27 @@
 
     <script src="users.js"></script>
     <script>
-        let currentTaskId = null;
-        let pollInterval = null;
-
-        // 登入邏輯
         function login() {
             const user = document.getElementById('username').value;
             const pass = document.getElementById('password').value;
             const validUser = USERS.find(u => u.username === user && u.password === pass);
-            
             if (validUser) {
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('download-section').style.display = 'block';
             } else {
-                alert('登入失敗，請檢查帳號密碼');
+                alert('登入失敗');
             }
         }
 
-        // 開始下載
         async function startDownload() {
             const serverUrl = document.getElementById('server-url').value.trim();
             const url = document.getElementById('url').value.trim();
             const mode = document.getElementById('mode').value;
 
             if (!serverUrl || !url) {
-                alert('請填寫伺服器 URL 和 YouTube 連結');
+                alert('請填寫完整資訊');
                 return;
             }
-
-            // 清除狀態
-            document.getElementById('dl-btn').disabled = true;
-            document.getElementById('progress-container').style.display = 'flex';
-            document.getElementById('progress-bar').style.width = '0%';
-            document.getElementById('status-info').innerText = '正在向伺服器提交請求...';
-            document.getElementById('result-link').style.display = 'none';
-            document.getElementById('alert-error').style.display = 'none';
 
             try {
                 const response = await fetch(`${serverUrl}/download`, {
@@ -136,65 +113,82 @@
                     body: JSON.stringify({ url, mode })
                 });
                 const data = await response.json();
-                if (data.task_id) {
-                    currentTaskId = data.task_id;
-                    startPolling(serverUrl);
+                if (data.task_ids) {
+                    data.task_ids.forEach(id => createTaskUI(id, serverUrl));
+                    document.getElementById('url').value = ''; // 清空輸入框
                 } else {
-                    throw new Error(data.error || '啟動任務失敗');
+                    alert(data.error || '啟動失敗');
                 }
             } catch (error) {
-                showError(`無法連接到伺服器: ${error.message}`);
-                document.getElementById('dl-btn').disabled = false;
+                alert(`連線失敗: ${error.message}`);
             }
         }
 
-        // 輪詢進度
-        function startPolling(serverUrl) {
-            if (pollInterval) clearInterval(pollInterval);
-            
-            pollInterval = setInterval(async () => {
+        function createTaskUI(taskId, serverUrl) {
+            const container = document.getElementById('tasks-container');
+            const taskDiv = document.createElement('div');
+            taskDiv.className = 'task-item';
+            taskDiv.id = `task-${taskId}`;
+            taskDiv.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <strong class="text-truncate" style="max-width: 70%;">任務 ID: ${taskId}</strong>
+                    <span id="badge-${taskId}" class="badge bg-secondary">等待中</span>
+                </div>
+                <div class="progress">
+                    <div id="bar-${taskId}" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%;">0%</div>
+                </div>
+                <div id="info-${taskId}" class="status-text text-center">正在連接伺服器...</div>
+                <div id="result-${taskId}" class="mt-3" style="display: none;">
+                    <a id="btn-${taskId}" class="btn btn-success w-100 btn-sm">✅ 下載完成！點擊取得檔案</a>
+                </div>
+            `;
+            container.prepend(taskDiv);
+            startPolling(taskId, serverUrl);
+        }
+
+        function startPolling(taskId, serverUrl) {
+            const pollInterval = setInterval(async () => {
                 try {
-                    const response = await fetch(`${serverUrl}/status/${currentTaskId}`);
+                    const response = await fetch(`${serverUrl}/status/${taskId}`);
                     const data = await response.json();
 
-                    if (data.status === 'processing' || data.status === 'pending') {
+                    const bar = document.getElementById(`bar-${taskId}`);
+                    const info = document.getElementById(`info-${taskId}`);
+                    const badge = document.getElementById(`badge-${taskId}`);
+
+                    if (data.status === 'processing') {
                         const progress = parseFloat(data.progress || 0).toFixed(1);
-                        document.getElementById('progress-bar').style.width = `${progress}%`;
-                        document.getElementById('progress-bar').innerText = `${progress}%`;
-                        document.getElementById('status-info').innerText = `速度: ${data.speed || '---'} | 剩餘時間: ${data.eta || '---'}`;
+                        bar.style.width = `${progress}%`;
+                        bar.innerText = `${progress}%`;
+                        info.innerText = `速度: ${data.speed || '---'} | 剩餘: ${data.eta || '---'}`;
+                        badge.className = 'badge bg-primary';
+                        badge.innerText = '下載中';
                     } else if (data.status === 'completed') {
                         clearInterval(pollInterval);
-                        document.getElementById('progress-bar').style.width = '100%';
-                        document.getElementById('progress-bar').innerText = '100%';
-                        document.getElementById('status-info').innerText = '✨ 任務完成！檔案已準備就緒。';
+                        bar.style.width = '100%';
+                        bar.innerText = '100%';
+                        info.innerText = '✨ 任務完成！';
+                        badge.className = 'badge bg-success';
+                        badge.innerText = '已完成';
                         
-                        const downloadBtn = document.getElementById('download-btn');
-                        downloadBtn.href = `${serverUrl}/files/${encodeURIComponent(data.file)}`;
-                        downloadBtn.download = data.file;
-                        document.getElementById('result-link').style.display = 'block';
-                        document.getElementById('dl-btn').disabled = false;
+                        const resultDiv = document.getElementById(`result-${taskId}`);
+                        const dlBtn = document.getElementById(`btn-${taskId}`);
+                        dlBtn.href = `${serverUrl}/files/${encodeURIComponent(data.file)}`;
+                        dlBtn.download = data.file;
+                        resultDiv.style.display = 'block';
                     } else if (data.status === 'failed') {
                         clearInterval(pollInterval);
-                        showError(`下載失敗: ${data.error}`);
-                        document.getElementById('dl-btn').disabled = false;
+                        info.innerText = `❌ 失敗: ${data.error}`;
+                        badge.className = 'badge bg-danger';
+                        badge.innerText = '失敗';
                     }
-                } catch (error) {
-                    console.error('Polling error:', error);
-                }
-            }, 1500);
+                } catch (e) { console.error(e); }
+            }, 2000);
         }
 
-        function showError(msg) {
-            const errDiv = document.getElementById('alert-error');
-            errDiv.innerText = msg;
-            errDiv.style.display = 'block';
-            document.getElementById('status-info').innerText = '發生錯誤';
-        }
-
-        async function getErrorLog() {
+        function getErrorLog() {
             const serverUrl = document.getElementById('server-url').value.trim();
-            if (!serverUrl) return alert('請先填寫伺服器 URL');
-            window.open(`${serverUrl}/error_report`, '_blank');
+            if (serverUrl) window.open(`${serverUrl}/error_report`, '_blank');
         }
     </script>
 </body>

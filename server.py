@@ -7,7 +7,7 @@ import time
 import re
 import shutil
 import logging
-from flask import Flask, request, jsonify, send_from_directory, after_this_request
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -30,23 +30,32 @@ def log_info(msg):
     logging.info(msg)
     print(f"INFO: {msg}")
 
-# 自動清理任務 (每天執行一次)
+# 自動清理任務 (每天凌晨 3 點執行)
 def auto_cleanup():
     while True:
         try:
             now = time.localtime()
-            # 每天凌晨 3 點執行清理
             if now.tm_hour == 3 and now.tm_min == 0:
                 log_info("Running scheduled cleanup...")
                 if os.path.exists(TEMP_PATH):
                     shutil.rmtree(TEMP_PATH)
                     os.makedirs(TEMP_PATH)
-                time.sleep(60) # 避免重複執行
+                time.sleep(60)
             time.sleep(30)
         except Exception as e:
             log_error(f"Cleanup failed: {str(e)}")
 
 threading.Thread(target=auto_cleanup, daemon=True).start()
+
+# 網址拆分功能
+def extract_urls(raw_text):
+    # 在 https 前插入換行，確保能正確切割連在一起的網址
+    processed = raw_text.replace('https://', '\nhttps://').replace('http://', '\nhttp://')
+    # 使用正則表達式抓取有效的 YouTube / YT Music 連結
+    pattern = r'https?://(?:music\.youtube\.com|www\.youtube\.com|youtu\.be)/(?:playlist\?list=|watch\?v=|)[a-zA-Z0-9_-]+'
+    urls = re.findall(pattern, processed)
+    # 移除重複並保持順序
+    return list(dict.fromkeys(urls))
 
 # 核心下載邏輯
 def download_task(task_id, mode, url):
@@ -56,7 +65,7 @@ def download_task(task_id, mode, url):
         task_dir = os.path.join(TEMP_PATH, task_id)
         os.makedirs(task_dir)
 
-        # 獲取標題/清單名稱作為檔名
+        # 獲取標題
         log_info(f"Task {task_id}: Fetching info for URL: {url}")
         info_cmd = ["yt-dlp", "--get-filename", "-o", "%(playlist_title,title)s", url]
         result = subprocess.run(info_cmd, capture_output=True, text=True)
@@ -68,14 +77,17 @@ def download_task(task_id, mode, url):
         if mode == "2" or mode == "4":
             output_tmpl = os.path.join(task_dir, "%(title)s.%(ext)s")
 
+        # 基礎指令
         cmd = ["yt-dlp", "--newline", "--progress", "--non-interactive"]
         
         if mode in ["1", "2", "3"]: # 音樂模式
             cmd += [
                 "-x", "--audio-format", "mp3", "--audio-quality", "320k",
-                "--embed-thumbnail", "--add-metadata",
-                "--ppa", "ThumbnailsConvertor: -c:v mjpeg -vf crop='ih:ih'",
+                "--embed-thumbnail", "--add-metadata"
             ]
+            # 修復 code 2: 移除 ppa 中容易報錯的引號，改用標準 ffmpeg 濾鏡參數
+            cmd += ["--postprocessor-args", "ThumbnailsConvertor:-vf crop=ih:ih"]
+            
             if mode in ["1", "3"]: cmd += ["--yes-playlist"]
             if mode == "1": cmd += ["--parse-metadata", "playlist_index:%(track_number)s"]
         
@@ -83,51 +95,39 @@ def download_task(task_id, mode, url):
             cmd += [
                 "-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best",
                 "--merge-output-format", "mp4",
-                "--postprocessor-args", "ffmpeg: -c:v copy -c:a aac",
+                "--postprocessor-args", "ffmpeg:-c:v copy -c:a aac",
             ]
             if mode == "5": cmd += ["--yes-playlist"]
 
         cmd += ["-o", output_tmpl, url]
 
-        # 執行下載並獲取即時進度
-        log_info(f"Task {task_id}: Starting yt-dlp with cmd: {' '.join(cmd)}")
+        log_info(f"Task {task_id}: Executing cmd: {' '.join(cmd)}")
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         
-        last_log_time = time.time()
         for line in process.stdout:
-            # 解析進度
+            # 解析進度 [download]  10.0% of ...
             match = re.search(r'(\d+\.\d+)%', line)
-            if match:
-                TASKS[task_id]['progress'] = match.group(1)
-            speed_match = re.search(r'at\s+([\d\.]+\w+/s)', line)
-            if speed_match:
-                TASKS[task_id]['speed'] = speed_match.group(1)
-            eta_match = re.search(r'ETA\s+(\d+:\d+)', line)
-            if eta_match:
-                TASKS[task_id]['eta'] = eta_match.group(1)
+            if match: TASKS[task_id]['progress'] = match.group(1)
             
-            # 每 10 秒記錄一次進度到日誌，避免日誌過大
-            if time.time() - last_log_time > 10:
-                log_info(f"Task {task_id} Progress: {TASKS[task_id]['progress']}%")
-                last_log_time = time.time()
+            speed_match = re.search(r'at\s+([\d\.]+\w+/s)', line)
+            if speed_match: TASKS[task_id]['speed'] = speed_match.group(1)
+            
+            eta_match = re.search(r'ETA\s+(\d+:\d+)', line)
+            if eta_match: TASKS[task_id]['eta'] = eta_match.group(1)
 
         process.wait()
         
         if process.returncode != 0:
-            # 獲取錯誤輸出
-            error_msg = f"yt-dlp exited with code {process.returncode}."
-            log_error(f"Task {task_id} Failed: {error_msg}")
-            raise Exception(error_msg)
+            raise Exception(f"yt-dlp exited with code {process.returncode}")
 
         files = os.listdir(task_dir)
-        if not files:
-            raise Exception("No files downloaded. Check if the URL is valid or restricted.")
+        if not files: raise Exception("No files downloaded.")
 
-        log_info(f"Task {task_id}: Download completed. Processing files...")
         if len(files) > 1 or mode in ["1", "3", "5"]:
             archive_name = f"{safe_name}.zip"
             archive_path = os.path.join(TEMP_PATH, archive_name)
-            log_info(f"Task {task_id}: Zipping files into {archive_name}")
+            log_info(f"Task {task_id}: Zipping into {archive_name}")
+            # 使用 zip -j 確保解壓後沒有多餘路徑
             subprocess.run(["zip", "-r", "-j", archive_path, task_dir])
             TASKS[task_id]['file'] = archive_name
         else:
@@ -137,7 +137,6 @@ def download_task(task_id, mode, url):
 
         TASKS[task_id]['status'] = 'completed'
         TASKS[task_id]['progress'] = '100'
-        log_info(f"Task {task_id}: All done.")
         shutil.rmtree(task_dir)
 
     except Exception as e:
@@ -148,14 +147,21 @@ def download_task(task_id, mode, url):
 @app.route('/download', methods=['POST'])
 def start_download():
     data = request.json
-    url = data.get('url')
-    mode = data.get('mode')
-    if not url: return jsonify({'error': 'No URL'}), 400
-    task_id = str(int(time.time()))
-    TASKS[task_id] = {'status': 'pending', 'progress': '0', 'speed': '0', 'eta': '0'}
-    log_info(f"Received download request: {url} (Mode: {mode}) -> Task ID: {task_id}")
-    threading.Thread(target=download_task, args=(task_id, mode, url)).start()
-    return jsonify({'task_id': task_id})
+    raw_url = data.get('url', '')
+    mode = data.get('mode', '1')
+    
+    urls = extract_urls(raw_url)
+    if not urls: return jsonify({'error': 'No valid URLs found'}), 400
+    
+    task_ids = []
+    for url in urls:
+        task_id = str(int(time.time() * 1000)) + str(len(task_ids))
+        TASKS[task_id] = {'status': 'pending', 'progress': '0', 'speed': '0', 'eta': '0', 'url': url}
+        threading.Thread(target=download_task, args=(task_id, mode, url)).start()
+        task_ids.append(task_id)
+        time.sleep(0.1) # 避免 task_id 重複
+        
+    return jsonify({'task_ids': task_ids})
 
 @app.route('/status/<task_id>', methods=['GET'])
 def get_status(task_id):
@@ -174,5 +180,5 @@ def get_error_report():
 if __name__ == "__main__":
     if not os.path.exists(BASE_PATH): os.makedirs(BASE_PATH)
     if not os.path.exists(TEMP_PATH): os.makedirs(TEMP_PATH)
-    log_info("Server started on port 5000")
+    log_info("Server started on port 5000 with URL splitter support.")
     app.run(host='0.0.0.0', port=5000, threaded=True)
