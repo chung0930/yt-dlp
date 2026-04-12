@@ -3,24 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Termux yt-dlp 終極下載器 v2.1</title>
+    <title>Termux yt-dlp 終極下載器 v2.2</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f0f2f5; font-family: 'Segoe UI', 'Noto Sans TC', sans-serif; }
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', 'Noto Sans TC', sans-serif; }
         .container { max-width: 900px; margin-top: 40px; margin-bottom: 40px; }
-        .card { border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: none; overflow: hidden; }
-        .card-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; font-weight: 800; text-align: center; font-size: 1.8rem; padding: 25px; }
+        .card { border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: none; overflow: hidden; }
+        .card-header { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border: none; font-weight: 800; text-align: center; font-size: 1.8rem; padding: 25px; }
         .card-body { padding: 35px; background: white; }
         .form-label { font-weight: 600; color: #4a5568; margin-bottom: 8px; }
         .form-control, .form-select { border-radius: 12px; border: 1.5px solid #e2e8f0; padding: 12px 18px; transition: all 0.3s; }
-        .form-control:focus, .form-select:focus { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15); }
-        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 12px; padding: 14px; font-weight: 700; font-size: 1.1rem; transition: transform 0.2s; }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3); }
+        .form-control:focus, .form-select:focus { border-color: #38ef7d; box-shadow: 0 0 0 3px rgba(56, 239, 125, 0.15); }
+        .btn-primary { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border: none; border-radius: 12px; padding: 14px; font-weight: 700; font-size: 1.1rem; transition: transform 0.2s; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(56, 239, 125, 0.3); }
         #login-section { display: block; }
         #download-section { display: none; }
-        .task-item { border: 1px solid #edf2f7; border-radius: 15px; padding: 20px; margin-top: 20px; background: #fafafa; }
+        .task-item { border: 1px solid #edf2f7; border-radius: 15px; padding: 20px; margin-top: 20px; background: #fafafa; transition: all 0.3s; }
+        .task-item:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .progress { height: 25px; border-radius: 12px; background-color: #edf2f7; overflow: hidden; margin-top: 10px; }
-        .progress-bar { background: linear-gradient(90deg, #667eea, #764ba2); font-weight: bold; }
+        .progress-bar { background: linear-gradient(90deg, #11998e, #38ef7d); font-weight: bold; }
         .status-text { font-size: 0.9rem; color: #718096; margin-top: 10px; font-weight: 500; }
         .server-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; background: #ebf8ff; color: #3182ce; margin-bottom: 15px; font-weight: 600; }
     </style>
@@ -45,7 +46,7 @@
 
         <!-- 下載介面 -->
         <div id="download-section" class="card">
-            <div class="card-header">🚀 終極下載器 v2.1</div>
+            <div class="card-header">🚀 終極下載器 v2.2</div>
             <div class="card-body">
                 <div class="server-badge">伺服器狀態：連線中...</div>
                 
@@ -55,8 +56,8 @@
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label">YouTube / YT Music 連結 (支援連貼多個網址)</label>
-                    <textarea id="url" class="form-control" rows="4" placeholder="直接貼上連結，系統會自動拆分 https://..."></textarea>
+                    <label class="form-label">YouTube / YT Music 連結 (可連續貼上多個網址)</label>
+                    <textarea id="url" class="form-control" rows="4" placeholder="貼上網址，系統會自動拆分 https://..."></textarea>
                 </div>
 
                 <div class="mb-4">
@@ -139,7 +140,7 @@
                 </div>
                 <div id="info-${taskId}" class="status-text text-center">正在連接伺服器...</div>
                 <div id="result-${taskId}" class="mt-3" style="display: none;">
-                    <a id="btn-${taskId}" class="btn btn-success w-100 btn-sm">✅ 下載完成！點擊取得檔案</a>
+                    <a id="btn-${taskId}" class="btn btn-success w-100 btn-sm" style="background: #11998e; border: none;">✅ 下載完成！點擊取得檔案</a>
                 </div>
             `;
             container.prepend(taskDiv);
