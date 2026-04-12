@@ -19,12 +19,16 @@ LOG_FILE = "/sdcard/Download/error_report.log"
 TASKS = {}
 
 # 設定日誌
-logging.basicConfig(filename=LOG_FILE, level=logging.ERROR, 
+logging.basicConfig(filename=LOG_FILE, level=logging.INFO, 
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 def log_error(msg):
     logging.error(msg)
     print(f"ERROR: {msg}")
+
+def log_info(msg):
+    logging.info(msg)
+    print(f"INFO: {msg}")
 
 # 自動清理任務 (每天執行一次)
 def auto_cleanup():
@@ -33,7 +37,7 @@ def auto_cleanup():
             now = time.localtime()
             # 每天凌晨 3 點執行清理
             if now.tm_hour == 3 and now.tm_min == 0:
-                print("Running scheduled cleanup...")
+                log_info("Running scheduled cleanup...")
                 if os.path.exists(TEMP_PATH):
                     shutil.rmtree(TEMP_PATH)
                     os.makedirs(TEMP_PATH)
@@ -44,18 +48,6 @@ def auto_cleanup():
 
 threading.Thread(target=auto_cleanup, daemon=True).start()
 
-# 下載進度解析
-def progress_hook(d):
-    if d['status'] == 'downloading':
-        p = d.get('_percent_str', '0%').replace('%','').strip()
-        s = d.get('_speed_str', 'N/A')
-        t = d.get('_eta_str', 'N/A')
-        task_id = d.get('info_dict', {}).get('task_id')
-        if task_id and task_id in TASKS:
-            TASKS[task_id]['progress'] = p
-            TASKS[task_id]['speed'] = s
-            TASKS[task_id]['eta'] = t
-
 # 核心下載邏輯
 def download_task(task_id, mode, url):
     TASKS[task_id]['status'] = 'processing'
@@ -65,10 +57,12 @@ def download_task(task_id, mode, url):
         os.makedirs(task_dir)
 
         # 獲取標題/清單名稱作為檔名
+        log_info(f"Task {task_id}: Fetching info for URL: {url}")
         info_cmd = ["yt-dlp", "--get-filename", "-o", "%(playlist_title,title)s", url]
         result = subprocess.run(info_cmd, capture_output=True, text=True)
         raw_name = result.stdout.strip().split('\n')[0]
         safe_name = re.sub(r'[\\/*?:"<>|]', "", raw_name) or "download"
+        log_info(f"Task {task_id}: Target name: {safe_name}")
 
         output_tmpl = os.path.join(task_dir, "%(playlist_index)02d - %(title)s.%(ext)s")
         if mode == "2" or mode == "4":
@@ -96,9 +90,12 @@ def download_task(task_id, mode, url):
         cmd += ["-o", output_tmpl, url]
 
         # 執行下載並獲取即時進度
+        log_info(f"Task {task_id}: Starting yt-dlp with cmd: {' '.join(cmd)}")
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        
+        last_log_time = time.time()
         for line in process.stdout:
-            # 解析進度 [download]  10.0% of 10.00MiB at  1.00MiB/s ETA 00:01
+            # 解析進度
             match = re.search(r'(\d+\.\d+)%', line)
             if match:
                 TASKS[task_id]['progress'] = match.group(1)
@@ -108,20 +105,29 @@ def download_task(task_id, mode, url):
             eta_match = re.search(r'ETA\s+(\d+:\d+)', line)
             if eta_match:
                 TASKS[task_id]['eta'] = eta_match.group(1)
+            
+            # 每 10 秒記錄一次進度到日誌，避免日誌過大
+            if time.time() - last_log_time > 10:
+                log_info(f"Task {task_id} Progress: {TASKS[task_id]['progress']}%")
+                last_log_time = time.time()
 
         process.wait()
         
         if process.returncode != 0:
-            raise Exception(f"yt-dlp exited with code {process.returncode}")
+            # 獲取錯誤輸出
+            error_msg = f"yt-dlp exited with code {process.returncode}."
+            log_error(f"Task {task_id} Failed: {error_msg}")
+            raise Exception(error_msg)
 
         files = os.listdir(task_dir)
         if not files:
-            raise Exception("No files downloaded.")
+            raise Exception("No files downloaded. Check if the URL is valid or restricted.")
 
+        log_info(f"Task {task_id}: Download completed. Processing files...")
         if len(files) > 1 or mode in ["1", "3", "5"]:
             archive_name = f"{safe_name}.zip"
             archive_path = os.path.join(TEMP_PATH, archive_name)
-            # 使用 zip 命令進行壓縮，解決重連問題
+            log_info(f"Task {task_id}: Zipping files into {archive_name}")
             subprocess.run(["zip", "-r", "-j", archive_path, task_dir])
             TASKS[task_id]['file'] = archive_name
         else:
@@ -131,7 +137,8 @@ def download_task(task_id, mode, url):
 
         TASKS[task_id]['status'] = 'completed'
         TASKS[task_id]['progress'] = '100'
-        shutil.rmtree(task_dir) # 下載完成後刪除暫存資料夾
+        log_info(f"Task {task_id}: All done.")
+        shutil.rmtree(task_dir)
 
     except Exception as e:
         log_error(f"Task {task_id} failed: {str(e)}")
@@ -146,6 +153,7 @@ def start_download():
     if not url: return jsonify({'error': 'No URL'}), 400
     task_id = str(int(time.time()))
     TASKS[task_id] = {'status': 'pending', 'progress': '0', 'speed': '0', 'eta': '0'}
+    log_info(f"Received download request: {url} (Mode: {mode}) -> Task ID: {task_id}")
     threading.Thread(target=download_task, args=(task_id, mode, url)).start()
     return jsonify({'task_id': task_id})
 
@@ -166,4 +174,5 @@ def get_error_report():
 if __name__ == "__main__":
     if not os.path.exists(BASE_PATH): os.makedirs(BASE_PATH)
     if not os.path.exists(TEMP_PATH): os.makedirs(TEMP_PATH)
+    log_info("Server started on port 5000")
     app.run(host='0.0.0.0', port=5000, threaded=True)
