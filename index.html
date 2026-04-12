@@ -3,27 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Termux yt-dlp 終極下載器 v2.2</title>
+    <title>Termux yt-dlp 終極下載器 v2.3 Final</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f4f7f6; font-family: 'Segoe UI', 'Noto Sans TC', sans-serif; }
+        body { background-color: #f8fafc; font-family: 'Segoe UI', 'Noto Sans TC', sans-serif; }
         .container { max-width: 900px; margin-top: 40px; margin-bottom: 40px; }
-        .card { border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: none; overflow: hidden; }
-        .card-header { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border: none; font-weight: 800; text-align: center; font-size: 1.8rem; padding: 25px; }
-        .card-body { padding: 35px; background: white; }
-        .form-label { font-weight: 600; color: #4a5568; margin-bottom: 8px; }
-        .form-control, .form-select { border-radius: 12px; border: 1.5px solid #e2e8f0; padding: 12px 18px; transition: all 0.3s; }
-        .form-control:focus, .form-select:focus { border-color: #38ef7d; box-shadow: 0 0 0 3px rgba(56, 239, 125, 0.15); }
-        .btn-primary { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border: none; border-radius: 12px; padding: 14px; font-weight: 700; font-size: 1.1rem; transition: transform 0.2s; }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(56, 239, 125, 0.3); }
+        .card { border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.06); border: none; overflow: hidden; }
+        .card-header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; border: none; font-weight: 800; text-align: center; font-size: 1.8rem; padding: 30px; }
+        .card-body { padding: 40px; background: white; }
+        .form-label { font-weight: 700; color: #334155; margin-bottom: 10px; }
+        .form-control, .form-select { border-radius: 14px; border: 2px solid #f1f5f9; padding: 14px 20px; transition: all 0.3s; background-color: #f8fafc; }
+        .form-control:focus, .form-select:focus { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); background-color: white; }
+        .btn-primary { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; border-radius: 14px; padding: 16px; font-weight: 800; font-size: 1.1rem; transition: all 0.3s; }
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3); }
         #login-section { display: block; }
         #download-section { display: none; }
-        .task-item { border: 1px solid #edf2f7; border-radius: 15px; padding: 20px; margin-top: 20px; background: #fafafa; transition: all 0.3s; }
-        .task-item:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .progress { height: 25px; border-radius: 12px; background-color: #edf2f7; overflow: hidden; margin-top: 10px; }
-        .progress-bar { background: linear-gradient(90deg, #11998e, #38ef7d); font-weight: bold; }
-        .status-text { font-size: 0.9rem; color: #718096; margin-top: 10px; font-weight: 500; }
-        .server-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; background: #ebf8ff; color: #3182ce; margin-bottom: 15px; font-weight: 600; }
+        .task-item { border: 2px solid #f1f5f9; border-radius: 20px; padding: 25px; margin-top: 25px; background: white; transition: all 0.3s; }
+        .task-item:hover { border-color: #e2e8f0; transform: scale(1.01); }
+        .progress { height: 28px; border-radius: 14px; background-color: #f1f5f9; overflow: hidden; margin-top: 15px; }
+        .progress-bar { background: linear-gradient(90deg, #4f46e5, #7c3aed); font-weight: 800; }
+        .status-text { font-size: 0.95rem; color: #64748b; margin-top: 12px; font-weight: 600; }
+        .server-badge { display: inline-block; padding: 6px 16px; border-radius: 30px; font-size: 0.85rem; background: #e0e7ff; color: #4338ca; margin-bottom: 20px; font-weight: 700; }
     </style>
 </head>
 <body>
@@ -40,44 +40,44 @@
                     <label class="form-label">密碼</label>
                     <input type="password" id="password" class="form-control" placeholder="輸入密碼">
                 </div>
-                <button onclick="login()" class="btn btn-primary w-100">登入系統</button>
+                <button onclick="login()" class="btn btn-primary w-100">立即登入</button>
             </div>
         </div>
 
         <!-- 下載介面 -->
         <div id="download-section" class="card">
-            <div class="card-header">🚀 終極下載器 v2.2</div>
+            <div class="card-header">🚀 終極下載器 v2.3 Final</div>
             <div class="card-body">
-                <div class="server-badge">伺服器狀態：連線中...</div>
+                <div class="server-badge">伺服器狀態：準備就緒</div>
                 
                 <div class="mb-4">
                     <label class="form-label">後端伺服器 URL (Serveo)</label>
-                    <input type="text" id="server-url" class="form-control" placeholder="例如: https://xxxx.serveo.net" value="">
+                    <input type="text" id="server-url" class="form-control" placeholder="https://xxxx.serveo.net" value="">
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label">YouTube / YT Music 連結 (可連續貼上多個網址)</label>
-                    <textarea id="url" class="form-control" rows="4" placeholder="貼上網址，系統會自動拆分 https://..."></textarea>
+                    <label class="form-label">YouTube / YT Music 連結 (支援自動拆分)</label>
+                    <textarea id="url" class="form-control" rows="4" placeholder="貼上一個或多個網址，系統會自動在 https:// 處拆分"></textarea>
                 </div>
 
                 <div class="mb-4">
                     <label class="form-label">選擇下載模式</label>
                     <select id="mode" class="form-select">
-                        <option value="1">🎵 YouTube Music 專輯下載 (自動分資料夾+封面)</option>
-                        <option value="2">🎵 YouTube Music 單曲下載 (封面+標籤)</option>
-                        <option value="3">🎵 YouTube Music 播放清單下載 (整份清單視為一張專輯)</option>
-                        <option value="4">🎬 YouTube 影片 1080p 下載 (音畫同步)</option>
-                        <option value="5">🎬 YouTube 影片播放清單下載 (1080p)</option>
+                        <option value="1">🎵 YT Music 專輯下載 (資料夾+1:1封面)</option>
+                        <option value="2">🎵 YT Music 單曲下載 (1:1封面+標籤)</option>
+                        <option value="3">🎵 YT Music 播放清單下載 (視為單一專輯)</option>
+                        <option value="4">🎬 YT 影片 1080p 下載 (音畫同步)</option>
+                        <option value="5">🎬 YT 影片播放清單下載 (1080p)</option>
                     </select>
                 </div>
 
-                <button onclick="startDownload()" id="dl-btn" class="btn btn-primary w-100">開始下載任務</button>
+                <button onclick="startDownload()" id="dl-btn" class="btn btn-primary w-100">啟動批次下載</button>
 
-                <!-- 任務清單容器 -->
+                <!-- 任務清單 -->
                 <div id="tasks-container"></div>
                 
                 <div class="mt-4 text-center">
-                    <a href="#" onclick="getErrorLog()" class="text-muted text-decoration-none small">查看錯誤報告</a>
+                    <a href="#" onclick="getErrorLog()" class="text-muted text-decoration-none small">查看系統錯誤日誌</a>
                 </div>
             </div>
         </div>
@@ -93,7 +93,7 @@
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('download-section').style.display = 'block';
             } else {
-                alert('登入失敗');
+                alert('登入失敗，請檢查帳號密碼');
             }
         }
 
@@ -116,12 +116,12 @@
                 const data = await response.json();
                 if (data.task_ids) {
                     data.task_ids.forEach(id => createTaskUI(id, serverUrl));
-                    document.getElementById('url').value = ''; // 清空輸入框
+                    document.getElementById('url').value = '';
                 } else {
                     alert(data.error || '啟動失敗');
                 }
             } catch (error) {
-                alert(`連線失敗: ${error.message}`);
+                alert(`連線伺服器失敗，請檢查 URL 是否正確或 Serveo 是否已斷開`);
             }
         }
 
@@ -131,16 +131,16 @@
             taskDiv.className = 'task-item';
             taskDiv.id = `task-${taskId}`;
             taskDiv.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center">
-                    <strong class="text-truncate" style="max-width: 70%;">任務 ID: ${taskId}</strong>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <strong class="text-truncate" style="max-width: 70%;">任務: ${taskId}</strong>
                     <span id="badge-${taskId}" class="badge bg-secondary">等待中</span>
                 </div>
                 <div class="progress">
                     <div id="bar-${taskId}" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%;">0%</div>
                 </div>
-                <div id="info-${taskId}" class="status-text text-center">正在連接伺服器...</div>
+                <div id="info-${taskId}" class="status-text text-center">正在解析...</div>
                 <div id="result-${taskId}" class="mt-3" style="display: none;">
-                    <a id="btn-${taskId}" class="btn btn-success w-100 btn-sm" style="background: #11998e; border: none;">✅ 下載完成！點擊取得檔案</a>
+                    <a id="btn-${taskId}" class="btn btn-success w-100" style="background: #10b981; border: none; border-radius: 12px; font-weight: 800;">🎁 點擊下載檔案</a>
                 </div>
             `;
             container.prepend(taskDiv);
@@ -161,14 +161,14 @@
                         const progress = parseFloat(data.progress || 0).toFixed(1);
                         bar.style.width = `${progress}%`;
                         bar.innerText = `${progress}%`;
-                        info.innerText = `速度: ${data.speed || '---'} | 剩餘: ${data.eta || '---'}`;
+                        info.innerText = `⚡ 速度: ${data.speed || '---'} | ⏳ 剩餘: ${data.eta || '---'}`;
                         badge.className = 'badge bg-primary';
                         badge.innerText = '下載中';
                     } else if (data.status === 'completed') {
                         clearInterval(pollInterval);
                         bar.style.width = '100%';
                         bar.innerText = '100%';
-                        info.innerText = '✨ 任務完成！';
+                        info.innerText = '✅ 下載完成！檔案已準備好。';
                         badge.className = 'badge bg-success';
                         badge.innerText = '已完成';
                         
@@ -183,7 +183,9 @@
                         badge.className = 'badge bg-danger';
                         badge.innerText = '失敗';
                     }
-                } catch (e) { console.error(e); }
+                } catch (e) { 
+                    console.error("Polling error:", e);
+                }
             }, 2000);
         }
 
