@@ -34,20 +34,18 @@ def log_info(msg):
 TERMUX_BIN = "/data/data/com.termux/files/usr/bin"
 os.environ["PATH"] = f"{TERMUX_BIN}:{os.environ.get('PATH', '')}"
 
-# 啟動時檢查依賴
-def check_dependencies():
+# 啟動時自動檢查並修復依賴 (針對 zip 缺失問題)
+def fix_dependencies():
     deps = ["yt-dlp", "ffmpeg", "ffprobe", "zip"]
-    missing = []
     for dep in deps:
         if shutil.which(dep) is None:
-            if not os.path.exists(os.path.join(TERMUX_BIN, dep)):
-                missing.append(dep)
-    if missing:
-        log_error(f"Missing dependencies: {', '.join(missing)}. Please run pkg install yt-dlp ffmpeg zip")
-    else:
-        log_info("All dependencies checked and found.")
+            log_info(f"Missing {dep}, attempting to install...")
+            try:
+                subprocess.run(["pkg", "install", dep, "-y"], check=True)
+            except:
+                log_error(f"Failed to auto-install {dep}. Please run: pkg install {dep} -y")
 
-check_dependencies()
+fix_dependencies()
 
 # 自動清理任務 (每天凌晨 3 點執行)
 def auto_cleanup():
@@ -73,7 +71,7 @@ def extract_urls(raw_text):
     urls = re.findall(pattern, processed)
     return list(dict.fromkeys(urls))
 
-# 核心下載邏輯
+# 核心下載邏輯 (v2.6 Ultimate 穩定邏輯)
 def download_task(task_id, mode, url):
     TASKS[task_id]['status'] = 'processing'
     error_output = []
@@ -82,46 +80,27 @@ def download_task(task_id, mode, url):
         task_dir = os.path.join(TEMP_PATH, task_id)
         os.makedirs(task_dir)
 
-        # 1. 獲取正確的專輯/清單標題 (用於最後打包命名)
-        log_info(f"Task {task_id}: Fetching playlist/album info for URL: {url}")
-        # 獲取播放清單標題
+        # 1. 獲取專輯/清單標題
         pl_cmd = ["yt-dlp", "--get-filename", "-o", "%(playlist_title,title)s", url]
         pl_result = subprocess.run(pl_cmd, capture_output=True, text=True, env=os.environ)
         raw_pl_name = pl_result.stdout.strip().split('\n')[0]
         safe_pl_name = re.sub(r'[\\/*?:"<>|]', "", raw_pl_name) or f"download_{task_id}"
 
-        # 2. 獲取所有歌曲的標題清單 (用於最後重新命名)
-        log_info(f"Task {task_id}: Fetching track titles...")
-        # 我們讓 yt-dlp 同時下載並輸出一個簡單的 index 作為檔名，避開 ffmpeg 在 Android 上的路徑解析問題
-        # 這是最關鍵的一步：使用極簡檔名下載，繞過括號、空格與中文字元導致的 Invalid argument
-        
+        # 2. 極簡路徑下載 (避開 Android 檔案系統限制)
         cmd = ["yt-dlp", "--newline", "--progress"]
-        
-        # 輸出模板：使用極簡檔名 track_01, track_02...
-        # 這樣 ffmpeg 在處理 Postprocessing 時就不會因為檔名特殊字元而報錯
         output_tmpl = os.path.join(task_dir, "track_%(playlist_index)03d.%(ext)s")
-        if mode in ["2", "4"]: # 單一檔案
-            output_tmpl = os.path.join(task_dir, "single_track.%(ext)s")
+        if mode in ["2", "4"]: output_tmpl = os.path.join(task_dir, "single_track.%(ext)s")
 
         if mode in ["1", "2", "3"]: # 音樂模式
-            cmd += [
-                "-x", "--audio-format", "mp3", "--audio-quality", "320k",
-                "--embed-thumbnail", "--add-metadata",
-                "--ppa", "ThumbnailsConvertor:-vf crop=ih:ih"
-            ]
+            cmd += ["-x", "--audio-format", "mp3", "--audio-quality", "320k", "--embed-thumbnail", "--add-metadata", "--ppa", "ThumbnailsConvertor:-vf crop=ih:ih"]
             if mode in ["1", "3"]: cmd += ["--yes-playlist"]
             if mode == "1": cmd += ["--parse-metadata", "playlist_index:%(track_number)s"]
-        
         elif mode in ["4", "5"]: # 影片模式
-            cmd += [
-                "-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best",
-                "--merge-output-format", "mp4"
-            ]
+            cmd += ["-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best", "--merge-output-format", "mp4"]
             if mode == "5": cmd += ["--yes-playlist"]
 
         cmd += ["-o", output_tmpl, url]
-
-        log_info(f"Task {task_id}: Executing cmd: {' '.join(cmd)}")
+        log_info(f"Task {task_id}: Executing {url}")
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', env=os.environ)
         
         for line in process.stdout:
@@ -135,14 +114,11 @@ def download_task(task_id, mode, url):
             if len(error_output) > 20: error_output.pop(0)
 
         process.wait()
-        
         if process.returncode != 0:
             full_error = "\n".join(error_output[-5:])
             raise Exception(f"yt-dlp exited with code {process.returncode}. Detail: {full_error}")
 
-        # 3. 下載完成後，使用 Python 進行安全重新命名
-        log_info(f"Task {task_id}: Download finished. Re-mapping titles safely...")
-        # 獲取實際標題清單
+        # 3. 安全重新命名
         title_cmd = ["yt-dlp", "--get-filename", "-o", "%(playlist_index)03d|%(title)s", url]
         title_result = subprocess.run(title_cmd, capture_output=True, text=True, env=os.environ)
         title_map = {}
@@ -160,20 +136,25 @@ def download_task(task_id, mode, url):
                     new_name = f"{idx} - {title_map[idx]}{ext}"
                     os.rename(os.path.join(task_dir, f), os.path.join(task_dir, new_name))
             elif f == f"single_track{ext}":
-                # 單曲模式獲取標題
                 st_cmd = ["yt-dlp", "--get-filename", "-o", "%(title)s", url]
                 st_result = subprocess.run(st_cmd, capture_output=True, text=True, env=os.environ)
                 st_name = re.sub(r'[\\/*?:"<>|]', "", st_result.stdout.strip())
                 os.rename(os.path.join(task_dir, f), os.path.join(task_dir, f"{st_name}{ext}"))
 
-        # 4. 打包與傳送
+        # 4. 打包 ZIP (再次確保 zip 指令存在)
         files = os.listdir(task_dir)
-        if not files: raise Exception("No files found after processing.")
-
         if len(files) > 1 or mode in ["1", "3", "5"]:
             archive_name = f"{safe_pl_name}.zip"
             archive_path = os.path.join(TEMP_PATH, archive_name)
-            subprocess.run(["zip", "-r", "-j", archive_path, task_dir], env=os.environ)
+            # 優先使用 zip 命令，如果失敗回退到 python 內建 zipfile (更穩定)
+            try:
+                subprocess.run(["zip", "-r", "-j", archive_path, task_dir], check=True, env=os.environ)
+            except:
+                import zipfile
+                with zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED) as z:
+                    for root, dirs, filenames in os.walk(task_dir):
+                        for filename in filenames:
+                            z.write(os.path.join(root, filename), filename)
             TASKS[task_id]['file'] = archive_name
         else:
             final_name = files[0]
@@ -223,5 +204,5 @@ def get_error_report():
 if __name__ == "__main__":
     if not os.path.exists(BASE_PATH): os.makedirs(BASE_PATH)
     if not os.path.exists(TEMP_PATH): os.makedirs(TEMP_PATH)
-    log_info("Server v2.6 Ultimate Version Started.")
+    log_info("Server v3.0 Started.")
     app.run(host='0.0.0.0', port=5000, threaded=True)
