@@ -13,6 +13,7 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
+# 設定路徑
 BASE_PATH = "/sdcard/Download"
 TEMP_PATH = "/sdcard/Download/temp"
 LOG_FILE = "/sdcard/Download/error_report.log"
@@ -30,26 +31,31 @@ def log_info(msg):
     logging.info(msg)
     print(f"INFO: {msg}")
 
-# 設定 Termux 環境變數路徑 (這對所有 Termux 指令至關重要)
-TERMUX_BIN = "/data/data/com.termux/files/usr/bin"
+# 強制設定 Termux 環境變數路徑
+TERMUX_PREFIX = "/data/data/com.termux/files/usr"
+TERMUX_BIN = f"{TERMUX_PREFIX}/bin"
 os.environ["PATH"] = f"{TERMUX_BIN}:{os.environ.get('PATH', '')}"
+os.environ["LD_LIBRARY_PATH"] = f"{TERMUX_PREFIX}/lib:{os.environ.get('LD_LIBRARY_PATH', '')}"
 
 # 啟動時自動檢查依賴
 def check_dependencies():
-    deps = ["yt-dlp", "ffmpeg", "ffprobe", "zip"]
-    for dep in deps:
-        if shutil.which(dep) is None:
-            log_info(f"Checking {dep} in Termux path...")
-            if not os.path.exists(os.path.join(TERMUX_BIN, dep)):
-                log_error(f"Missing {dep}. Please run: pkg install {dep} -y")
+    log_info("Checking system dependencies...")
+    # 檢查核心工具
+    for tool in ["yt-dlp", "ffmpeg", "ffprobe", "zip"]:
+        path = shutil.which(tool)
+        if path:
+            log_info(f"Found {tool} at {path}")
+        else:
+            log_error(f"CRITICAL: {tool} not found in PATH!")
     
     # 檢查 Python 套件
     try:
         import flask
         import flask_cors
         import yt_dlp
+        log_info("All Python packages are installed.")
     except ImportError as e:
-        log_error(f"Missing Python package: {e}. Please run: pip install flask flask-cors yt-dlp")
+        log_error(f"Missing Python package: {e}")
 
 check_dependencies()
 
@@ -153,8 +159,10 @@ def download_task(task_id, mode, url):
             archive_name = f"{safe_pl_name}.zip"
             archive_path = os.path.join(TEMP_PATH, archive_name)
             try:
+                # 優先使用系統 zip
                 subprocess.run(["zip", "-r", "-j", archive_path, task_dir], check=True, env=os.environ)
             except:
+                # 備援使用 Python zipfile
                 import zipfile
                 with zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED) as z:
                     for root, dirs, filenames in os.walk(task_dir):
@@ -177,7 +185,7 @@ def download_task(task_id, mode, url):
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    return jsonify({'status': 'online', 'version': '3.2 Stable'})
+    return jsonify({'status': 'online', 'version': '3.3 Final'})
 
 @app.route('/download', methods=['POST'])
 def start_download():
@@ -213,5 +221,5 @@ def get_error_report():
 if __name__ == "__main__":
     if not os.path.exists(BASE_PATH): os.makedirs(BASE_PATH)
     if not os.path.exists(TEMP_PATH): os.makedirs(TEMP_PATH)
-    log_info("Server v3.2 Stable Started.")
+    log_info("Server v3.3 Final Started.")
     app.run(host='0.0.0.0', port=5000, threaded=True)
