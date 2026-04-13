@@ -8,8 +8,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${GREEN}🚀 Termux yt-dlp 遠端控制中心 v3.4 Final${NC}"
-echo -e "${GREEN}✨ 終極修復版 (Fixed Syntax Error)${NC}"
+echo -e "${GREEN}🚀 Termux yt-dlp 遠端控制中心 v3.5 Final${NC}"
+echo -e "${GREEN}✨ 終極穩定版 (Cloudflare Tunnel + Stable-Fix)${NC}"
 echo -e "${BLUE}========================================${NC}"
 
 # 1. 要求儲存權限
@@ -18,7 +18,7 @@ termux-setup-storage
 sleep 3
 
 # 2. 更新系統與安裝基礎依賴
-echo -e "${YELLOW}[2/5] 正在安裝系統依賴 (Python, ffmpeg, zip, ttyd)...${NC}"
+echo -e "${YELLOW}[2/5] 正在更新系統並安裝基礎依賴 (Python, ffmpeg, zip, ttyd)...${NC}"
 pkg update -y && pkg upgrade -y
 pkg install python ffmpeg zip ttyd openssh curl wget -y
 
@@ -26,28 +26,17 @@ pkg install python ffmpeg zip ttyd openssh curl wget -y
 echo -e "${YELLOW}[3/5] 正在安裝 Python 核心套件 (Flask, CORS, yt-dlp)...${NC}"
 pip install flask flask-cors yt-dlp
 
-# 4. 安裝 ngrok (固定網址穩定方案)
-echo -e "${YELLOW}[4/5] 正在安裝 ngrok...${NC}"
-if [ ! -f "$PREFIX/bin/ngrok" ]; then
-    pkg install tsu -y
-    pkg install ngrok -y
-    # 如果 pkg 安裝失敗，使用官方二進位檔 (簡化判斷)
-    if [ $? -ne 0 ]; then
-        echo -e "${YELLOW}pkg 安裝失敗，嘗試手動下載 ngrok...${NC}"
-        ARCH=$(uname -m)
-        if [ "$ARCH" == "aarch64" ]; then
-            wget https://bin.equinox.io/c/b34edq6jn9t/ngrok-v3-stable-linux-arm64.tgz -O ngrok.tgz
-        else
-            wget https://bin.equinox.io/c/b34edq6jn9t/ngrok-v3-stable-linux-arm.tgz -O ngrok.tgz
-        fi
-        tar -xvzf ngrok.tgz
-        chmod +x ngrok
-        mv ngrok $PREFIX/bin/
-        rm ngrok.tgz
-    fi
-    echo -e "${GREEN}✅ ngrok 安裝成功！${NC}"
+# 4. 安裝 Cloudflared (最穩定的固定網址方案)
+echo -e "${YELLOW}[4/5] 正在安裝 Cloudflared (透過 tur-repo 官方庫)...${NC}"
+# 先安裝 tur-repo 官方擴充庫，確保能裝到 cloudflared
+pkg install tur-repo -y
+pkg update -y
+pkg install cloudflared -y
+
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✅ Cloudflared 安裝成功！${NC}"
 else
-    echo -e "${GREEN}✅ ngrok 已存在，跳過安裝。${NC}"
+    echo -e "${RED}❌ Cloudflared 安裝失敗，請嘗試手動執行: pkg install cloudflared${NC}"
 fi
 
 # 5. 建立下載目錄與啟動
@@ -56,13 +45,12 @@ mkdir -p /sdcard/Download/temp
 
 echo -e "${GREEN}✅ 部署完成！${NC}"
 echo -e "${BLUE}------------------------------------------${NC}"
-echo -e "${YELLOW}🔑 如何設定固定網址 (ngrok)：${NC}"
-echo -e "1. 前往 https://ngrok.com 註冊帳號並獲取 Authtoken"
-echo -e "2. 在 Termux 執行: ${GREEN}ngrok config add-authtoken 您的TOKEN${NC}"
-echo -e "3. 啟動轉發 (下載伺服器):"
-echo -e "   ${GREEN}ngrok http 5000${NC}"
-echo -e "4. 啟動轉發 (控制台):"
-echo -e "   ${GREEN}ngrok http 8080${NC}"
+echo -e "${YELLOW}🔑 如何設定固定網址 (Cloudflare Tunnel)：${NC}"
+echo -e "1. 啟動轉發 (下載伺服器):"
+echo -e "   ${GREEN}cloudflared tunnel --url http://localhost:5000${NC}"
+echo -e "2. 啟動轉發 (控制台):"
+echo -e "   ${GREEN}cloudflared tunnel --url http://localhost:8080${NC}"
+echo -e "   (執行後請記下畫面顯示的 .trycloudflare.com 網址)"
 echo -e "${BLUE}------------------------------------------${NC}"
 echo -e "${GREEN}💡 啟動指令：${NC}"
 echo -e "   python server.py"

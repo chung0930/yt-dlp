@@ -3,28 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Termux 影音下載控制中心 v3.4 Final</title>
+    <title>Termux 影音下載控制中心 v3.5 Final Stable</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        :root { --primary: #0ea5e9; --primary-dark: #0284c7; --bg: #f0f9ff; --card-bg: #ffffff; }
-        body { background-color: var(--bg); font-family: 'Segoe UI', 'Noto Sans TC', sans-serif; color: #0f172a; }
+        :root { --primary: #f97316; --primary-dark: #ea580c; --bg: #fff7ed; --card-bg: #ffffff; }
+        body { background-color: var(--bg); font-family: 'Segoe UI', 'Noto Sans TC', sans-serif; color: #1e293b; }
         .container { max-width: 1000px; margin-top: 30px; margin-bottom: 50px; }
         .nav-pills .nav-link { border-radius: 18px; font-weight: 700; color: #64748b; padding: 14px 30px; transition: all 0.3s; border: 2px solid transparent; }
-        .nav-pills .nav-link.active { background: #ffffff; color: var(--primary); border-color: var(--primary); box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15); }
+        .nav-pills .nav-link.active { background: #ffffff; color: var(--primary); border-color: var(--primary); box-shadow: 0 4px 15px rgba(249, 115, 22, 0.15); }
         .card { border-radius: 32px; box-shadow: 0 15px 40px rgba(0,0,0,0.05); border: none; overflow: hidden; }
-        .card-header { background: #ffffff; border-bottom: 1px solid #e0f2fe; color: #0369a1; font-weight: 800; text-align: center; font-size: 1.7rem; padding: 35px; }
+        .card-header { background: #ffffff; border-bottom: 1px solid #ffedd5; color: #9a3412; font-weight: 800; text-align: center; font-size: 1.7rem; padding: 35px; }
         .card-body { padding: 45px; background: white; }
-        .form-label { font-weight: 700; color: #334155; margin-bottom: 12px; }
+        .form-label { font-weight: 700; color: #475569; margin-bottom: 12px; }
         .form-control, .form-select { border-radius: 20px; border: 2px solid #f1f5f9; padding: 16px 24px; transition: all 0.3s; background-color: #f8fafc; }
-        .form-control:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 5px rgba(14, 165, 233, 0.1); background-color: white; }
+        .form-control:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 5px rgba(249, 115, 22, 0.1); background-color: white; }
         .btn-primary { background: var(--primary); border: none; border-radius: 20px; padding: 20px; font-weight: 800; font-size: 1.25rem; transition: all 0.3s; }
-        .btn-primary:hover { transform: translateY(-3px); background: var(--primary-dark); box-shadow: 0 12px 24px rgba(14, 165, 233, 0.3); }
+        .btn-primary:hover { transform: translateY(-3px); background: var(--primary-dark); box-shadow: 0 12px 24px rgba(249, 115, 22, 0.3); }
         #login-section { display: block; }
         #main-content { display: none; }
         .task-item { border: 2px solid #f1f5f9; border-radius: 28px; padding: 35px; margin-top: 30px; background: white; transition: all 0.3s; }
         .progress { height: 36px; border-radius: 18px; background-color: #f1f5f9; overflow: hidden; margin-top: 25px; }
-        .progress-bar { background: linear-gradient(90deg, var(--primary), #3b82f6); font-weight: 800; font-size: 1rem; }
+        .progress-bar { background: linear-gradient(90deg, var(--primary), #fb923c); font-weight: 800; font-size: 1rem; }
         .terminal-container { background: #000000; border-radius: 28px; height: 600px; width: 100%; border: none; overflow: hidden; }
         .terminal-iframe { width: 100%; height: 100%; border: none; }
         .status-badge { display: inline-block; padding: 10px 25px; border-radius: 50px; font-size: 0.95rem; font-weight: 700; margin-bottom: 30px; }
@@ -36,7 +36,7 @@
     <div class="container">
         <!-- 登入介面 -->
         <div id="login-section" class="card mx-auto" style="max-width: 500px;">
-            <div class="card-header">🔐 雲端控制中心 v3.4</div>
+            <div class="card-header">🔐 雲端控制中心 v3.5</div>
             <div class="card-body">
                 <div class="mb-4">
                     <label class="form-label">管理員帳號</label>
@@ -72,8 +72,8 @@
                             <div id="server-status" class="status-badge status-offline"><i class="bi bi-dot"></i> 正在連線 Termux 後端...</div>
                             
                             <div class="mb-4">
-                                <label class="form-label">下載伺服器 URL (支援 ngrok 固定網址)</label>
-                                <input type="text" id="server-url" class="form-control" placeholder="https://xxxx.ngrok-free.app" onchange="saveSettings()">
+                                <label class="form-label">下載伺服器 URL (支援 Cloudflare Tunnel)</label>
+                                <input type="text" id="server-url" class="form-control" placeholder="https://xxxx.trycloudflare.com" onchange="saveSettings()">
                             </div>
 
                             <div class="mb-4">
@@ -104,8 +104,8 @@
                         <div class="card-header">💻 Termux 實時控制台</div>
                         <div class="card-body">
                             <div class="mb-4">
-                                <label class="form-label">控制台 URL (支援 ngrok 8080 轉發)</label>
-                                <input type="text" id="terminal-url" class="form-control" placeholder="https://xxxx-term.ngrok-free.app" onchange="saveSettings()">
+                                <label class="form-label">控制台 URL (支援 Cloudflare Tunnel 8080 轉發)</label>
+                                <input type="text" id="terminal-url" class="form-control" placeholder="https://xxxx-term.trycloudflare.com" onchange="saveSettings()">
                             </div>
                             <button onclick="connectTerminal()" class="btn btn-dark w-100 mb-5 py-3 rounded-pill"><i class="bi bi-plug-fill me-2"></i>連接遠端終端</button>
                             
