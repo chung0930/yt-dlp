@@ -8,8 +8,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${GREEN}🚀 Termux yt-dlp 遠端控制中心 v3.3 Final${NC}"
-echo -e "${GREEN}✨ 終極穩定版 (ngrok + Stable-Fix)${NC}"
+echo -e "${GREEN}🚀 Termux yt-dlp 遠端控制中心 v3.4 Final${NC}"
+echo -e "${GREEN}✨ 終極修復版 (Fixed Syntax Error)${NC}"
 echo -e "${BLUE}========================================${NC}"
 
 # 1. 要求儲存權限
@@ -24,14 +24,14 @@ pkg install python ffmpeg zip ttyd openssh curl wget -y
 
 # 3. 安裝 Python 套件
 echo -e "${YELLOW}[3/5] 正在安裝 Python 核心套件 (Flask, CORS, yt-dlp)...${NC}"
-# 注意：不更新 pip，直接安裝
 pip install flask flask-cors yt-dlp
 
-# 4. 安裝 ngrok (替代失效的 LocalXpose)
-echo -e "${YELLOW}[4/5] 正在安裝 ngrok (固定網址穩定方案)...${NC}"
+# 4. 安裝 ngrok (固定網址穩定方案)
+echo -e "${YELLOW}[4/5] 正在安裝 ngrok...${NC}"
 if [ ! -f "$PREFIX/bin/ngrok" ]; then
-    pkg install tsu -y # 輔助工具
+    pkg install tsu -y
     pkg install ngrok -y
+    # 如果 pkg 安裝失敗，使用官方二進位檔 (簡化判斷)
     if [ $? -ne 0 ]; then
         echo -e "${YELLOW}pkg 安裝失敗，嘗試手動下載 ngrok...${NC}"
         ARCH=$(uname -m)
@@ -39,7 +39,7 @@ if [ ! -f "$PREFIX/bin/ngrok" ]; then
             wget https://bin.equinox.io/c/b34edq6jn9t/ngrok-v3-stable-linux-arm64.tgz -O ngrok.tgz
         else
             wget https://bin.equinox.io/c/b34edq6jn9t/ngrok-v3-stable-linux-arm.tgz -O ngrok.tgz
-        }
+        fi
         tar -xvzf ngrok.tgz
         chmod +x ngrok
         mv ngrok $PREFIX/bin/
