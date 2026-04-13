@@ -3,47 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Termux yt-dlp 遠端控制中心 v3.0</title>
+    <title>Termux 影音下載控制中心 v3.1 Fixed-URL</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        body { background-color: #f1f5f9; font-family: 'Segoe UI', 'Noto Sans TC', sans-serif; }
+        body { background-color: #f8fafc; font-family: 'Segoe UI', 'Noto Sans TC', sans-serif; }
         .container { max-width: 1000px; margin-top: 30px; margin-bottom: 50px; }
-        .nav-pills .nav-link { border-radius: 12px; font-weight: 700; color: #64748b; padding: 12px 25px; transition: all 0.3s; }
-        .nav-pills .nav-link.active { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.2); }
-        .card { border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.05); border: none; overflow: hidden; }
+        .nav-pills .nav-link { border-radius: 14px; font-weight: 700; color: #64748b; padding: 12px 25px; transition: all 0.3s; border: 2px solid transparent; }
+        .nav-pills .nav-link.active { background: #ffffff; color: #2563eb; border-color: #2563eb; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1); }
+        .card { border-radius: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: none; overflow: hidden; }
         .card-header { background: #ffffff; border-bottom: 1px solid #f1f5f9; color: #1e293b; font-weight: 800; text-align: center; font-size: 1.5rem; padding: 25px; }
         .card-body { padding: 35px; background: white; }
         .form-label { font-weight: 700; color: #475569; margin-bottom: 8px; }
-        .form-control, .form-select { border-radius: 14px; border: 2px solid #f1f5f9; padding: 12px 18px; transition: all 0.3s; background-color: #f8fafc; }
-        .form-control:focus, .form-select:focus { border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); background-color: white; }
-        .btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border: none; border-radius: 14px; padding: 15px; font-weight: 800; font-size: 1.1rem; transition: all 0.3s; }
-        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3); }
+        .form-control, .form-select { border-radius: 16px; border: 2px solid #f1f5f9; padding: 14px 20px; transition: all 0.3s; background-color: #f8fafc; }
+        .form-control:focus, .form-select:focus { border-color: #2563eb; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.05); background-color: white; }
+        .btn-primary { background: #2563eb; border: none; border-radius: 16px; padding: 16px; font-weight: 800; font-size: 1.1rem; transition: all 0.3s; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(37, 99, 235, 0.2); }
         #login-section { display: block; }
         #main-content { display: none; }
-        .task-item { border: 2px solid #f1f5f9; border-radius: 20px; padding: 25px; margin-top: 20px; background: white; transition: all 0.3s; }
-        .progress { height: 24px; border-radius: 12px; background-color: #f1f5f9; overflow: hidden; margin-top: 15px; }
-        .progress-bar { background: linear-gradient(90deg, #3b82f6, #8b5cf6); font-weight: 800; }
-        .terminal-container { background: #0f172a; border-radius: 20px; height: 500px; width: 100%; border: none; overflow: hidden; position: relative; }
+        .task-item { border: 2px solid #f1f5f9; border-radius: 24px; padding: 25px; margin-top: 20px; background: white; transition: all 0.3s; }
+        .progress { height: 28px; border-radius: 14px; background-color: #f1f5f9; overflow: hidden; margin-top: 15px; }
+        .progress-bar { background: linear-gradient(90deg, #2563eb, #7c3aed); font-weight: 800; }
+        .terminal-container { background: #000000; border-radius: 24px; height: 550px; width: 100%; border: none; overflow: hidden; }
         .terminal-iframe { width: 100%; height: 100%; border: none; }
-        .status-badge { display: inline-block; padding: 5px 15px; border-radius: 30px; font-size: 0.85rem; background: #dcfce7; color: #166534; font-weight: 700; margin-bottom: 15px; }
+        .status-badge { display: inline-block; padding: 6px 18px; border-radius: 40px; font-size: 0.85rem; font-weight: 700; margin-bottom: 20px; }
+        .status-online { background: #dcfce7; color: #166534; }
+        .status-offline { background: #fee2e2; color: #991b1b; }
     </style>
 </head>
 <body>
     <div class="container">
         <!-- 登入介面 -->
-        <div id="login-section" class="card mx-auto" style="max-width: 500px;">
-            <div class="card-header">🔐 控制中心登入</div>
+        <div id="login-section" class="card mx-auto" style="max-width: 450px;">
+            <div class="card-header">🔐 控制中心驗證</div>
             <div class="card-body">
                 <div class="mb-4">
-                    <label class="form-label">管理員帳號</label>
-                    <input type="text" id="username" class="form-control" placeholder="輸入帳號">
+                    <label class="form-label">帳號</label>
+                    <input type="text" id="username" class="form-control" placeholder="輸入管理員帳號">
                 </div>
                 <div class="mb-4">
-                    <label class="form-label">存取密碼</label>
-                    <input type="password" id="password" class="form-control" placeholder="輸入密碼">
+                    <label class="form-label">密碼</label>
+                    <input type="password" id="password" class="form-control" placeholder="輸入存取密碼">
                 </div>
-                <button onclick="login()" class="btn btn-primary w-100">驗證身分</button>
+                <button onclick="login()" class="btn btn-primary w-100">登入系統</button>
             </div>
         </div>
 
@@ -52,10 +54,10 @@
             <div class="d-flex justify-content-center mb-4">
                 <ul class="nav nav-pills" id="pills-tab" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="pills-download-tab" data-bs-toggle="pill" data-bs-target="#pills-download" type="button" role="tab"><i class="bi bi-cloud-arrow-down-fill me-2"></i>下載任務</button>
+                        <button class="nav-link active" id="pills-download-tab" data-bs-toggle="pill" data-bs-target="#pills-download" type="button" role="tab"><i class="bi bi-cloud-download-fill me-2"></i>下載中心</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="pills-terminal-tab" data-bs-toggle="pill" data-bs-target="#pills-terminal" type="button" role="tab"><i class="bi bi-terminal-fill me-2"></i>遠端控制台</button>
+                        <button class="nav-link" id="pills-terminal-tab" data-bs-toggle="pill" data-bs-target="#pills-terminal" type="button" role="tab"><i class="bi bi-terminal-fill me-2"></i>遠端終端</button>
                     </li>
                 </ul>
             </div>
@@ -64,13 +66,13 @@
                 <!-- 下載分頁 -->
                 <div class="tab-pane fade show active" id="pills-download" role="tabpanel">
                     <div class="card">
-                        <div class="card-header">📥 影音下載任務管理</div>
+                        <div class="card-header">📥 下載任務管理 (v3.1)</div>
                         <div class="card-body">
-                            <div class="status-badge"><i class="bi bi-check-circle-fill me-1"></i> 後端已連線 (v3.0 Control Center)</div>
+                            <div id="server-status" class="status-badge status-offline"><i class="bi bi-dot"></i> 檢查伺服器連線中...</div>
                             
                             <div class="mb-4">
-                                <label class="form-label">後端伺服器 URL (Serveo)</label>
-                                <input type="text" id="server-url" class="form-control" placeholder="https://xxxx.serveo.net" onchange="updateTerminalUrl()">
+                                <label class="form-label">固定下載伺服器 URL (會自動記憶)</label>
+                                <input type="text" id="server-url" class="form-control" placeholder="https://your-name.loclx.io" onchange="saveSettings()">
                             </div>
 
                             <div class="mb-4">
@@ -79,17 +81,17 @@
                             </div>
 
                             <div class="mb-4">
-                                <label class="form-label">下載模式設定</label>
+                                <label class="form-label">下載模式</label>
                                 <select id="mode" class="form-select">
-                                    <option value="1">🎵 YT Music 專輯下載 (資料夾+1:1封面)</option>
-                                    <option value="2">🎵 YT Music 單曲下載 (1:1封面+標籤)</option>
-                                    <option value="3">🎵 YT Music 播放清單下載 (單一專輯)</option>
-                                    <option value="4">🎬 YT 影片 1080p 下載 (音畫同步)</option>
-                                    <option value="5">🎬 YT 影片播放清單下載 (1080p)</option>
+                                    <option value="1">🎵 YT Music 專輯 (1:1封面+資料夾)</option>
+                                    <option value="2">🎵 YT Music 單曲 (1:1封面+標籤)</option>
+                                    <option value="3">🎵 YT Music 播放清單 (視為單一專輯)</option>
+                                    <option value="4">🎬 YT 影片 1080p (音畫同步)</option>
+                                    <option value="5">🎬 YT 影片播放清單 (1080p)</option>
                                 </select>
                             </div>
 
-                            <button onclick="startDownload()" class="btn btn-primary w-100 mb-3">啟動批次下載任務</button>
+                            <button onclick="startDownload()" class="btn btn-primary w-100 mb-3">啟動批次任務</button>
                             <div id="tasks-container"></div>
                         </div>
                     </div>
@@ -98,15 +100,11 @@
                 <!-- 終端機分頁 -->
                 <div class="tab-pane fade" id="pills-terminal" role="tabpanel">
                     <div class="card">
-                        <div class="card-header">💻 Termux 實時控制台</div>
+                        <div class="card-header">💻 遠端實時控制台</div>
                         <div class="card-body">
-                            <div class="alert alert-info py-2 small mb-3">
-                                <i class="bi bi-info-circle-fill me-2"></i>
-                                提示：請先在 Termux 執行 <code>ttyd -p 8080 bash</code> 並使用 Serveo 轉發 8080 埠。
-                            </div>
                             <div class="mb-3">
-                                <label class="form-label">控制台 URL (Serveo 8080 轉發網址)</label>
-                                <input type="text" id="terminal-url" class="form-control" placeholder="https://terminal-xxxx.serveo.net">
+                                <label class="form-label">固定控制台 URL (會自動記憶)</label>
+                                <input type="text" id="terminal-url" class="form-control" placeholder="https://your-terminal.loclx.io" onchange="saveSettings()">
                             </div>
                             <button onclick="connectTerminal()" class="btn btn-dark w-100 mb-4"><i class="bi bi-plug-fill me-2"></i>連接控制台</button>
                             
@@ -123,6 +121,42 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="users.js"></script>
     <script>
+        // 載入記憶的設定
+        window.onload = function() {
+            const savedServer = localStorage.getItem('yt_dlp_server');
+            const savedTerminal = localStorage.getItem('yt_dlp_terminal');
+            if (savedServer) {
+                document.getElementById('server-url').value = savedServer;
+                checkServerStatus();
+            }
+            if (savedTerminal) document.getElementById('terminal-url').value = savedTerminal;
+        };
+
+        function saveSettings() {
+            const server = document.getElementById('server-url').value.trim();
+            const terminal = document.getElementById('terminal-url').value.trim();
+            localStorage.setItem('yt_dlp_server', server);
+            localStorage.setItem('yt_dlp_terminal', terminal);
+            if (server) checkServerStatus();
+        }
+
+        async function checkServerStatus() {
+            const serverUrl = document.getElementById('server-url').value.trim();
+            const badge = document.getElementById('server-status');
+            if (!serverUrl) return;
+            try {
+                const res = await fetch(`${serverUrl}/health`);
+                const data = await res.json();
+                if (data.status === 'online') {
+                    badge.className = 'status-badge status-online';
+                    badge.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> 伺服器已連線 (${data.version})`;
+                }
+            } catch (e) {
+                badge.className = 'status-badge status-offline';
+                badge.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> 伺服器離線中`;
+            }
+        }
+
         function login() {
             const user = document.getElementById('username').value;
             const pass = document.getElementById('password').value;
@@ -137,7 +171,8 @@
             const url = document.getElementById('terminal-url').value.trim();
             if (url) {
                 document.getElementById('terminal-frame').src = url;
-            } else { alert('請輸入控制台 URL'); }
+                saveSettings();
+            }
         }
 
         async function startDownload() {
@@ -175,7 +210,7 @@
                 </div>
                 <div id="info-${taskId}" class="status-text text-center">正在同步...</div>
                 <div id="result-${taskId}" class="mt-3" style="display: none;">
-                    <a id="btn-${taskId}" class="btn btn-success w-100" style="background: #10b981; border: none; border-radius: 12px; font-weight: 800;">🎁 領取檔案</a>
+                    <a id="btn-${taskId}" class="btn btn-success w-100" style="background: #10b981; border: none; border-radius: 14px; font-weight: 800;">🎁 領取檔案</a>
                 </div>
             `;
             container.prepend(taskDiv);

@@ -34,7 +34,7 @@ def log_info(msg):
 TERMUX_BIN = "/data/data/com.termux/files/usr/bin"
 os.environ["PATH"] = f"{TERMUX_BIN}:{os.environ.get('PATH', '')}"
 
-# 啟動時自動檢查並修復依賴 (針對 zip 缺失問題)
+# 啟動時自動檢查並修復依賴
 def fix_dependencies():
     deps = ["yt-dlp", "ffmpeg", "ffprobe", "zip"]
     for dep in deps:
@@ -141,12 +141,11 @@ def download_task(task_id, mode, url):
                 st_name = re.sub(r'[\\/*?:"<>|]', "", st_result.stdout.strip())
                 os.rename(os.path.join(task_dir, f), os.path.join(task_dir, f"{st_name}{ext}"))
 
-        # 4. 打包 ZIP (再次確保 zip 指令存在)
+        # 4. 打包 ZIP
         files = os.listdir(task_dir)
         if len(files) > 1 or mode in ["1", "3", "5"]:
             archive_name = f"{safe_pl_name}.zip"
             archive_path = os.path.join(TEMP_PATH, archive_name)
-            # 優先使用 zip 命令，如果失敗回退到 python 內建 zipfile (更穩定)
             try:
                 subprocess.run(["zip", "-r", "-j", archive_path, task_dir], check=True, env=os.environ)
             except:
@@ -169,6 +168,10 @@ def download_task(task_id, mode, url):
         log_error(f"Task {task_id} failed: {str(e)}")
         TASKS[task_id]['status'] = 'failed'
         TASKS[task_id]['error'] = str(e)
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'online', 'version': '3.1 Fixed-URL'})
 
 @app.route('/download', methods=['POST'])
 def start_download():
@@ -204,5 +207,5 @@ def get_error_report():
 if __name__ == "__main__":
     if not os.path.exists(BASE_PATH): os.makedirs(BASE_PATH)
     if not os.path.exists(TEMP_PATH): os.makedirs(TEMP_PATH)
-    log_info("Server v3.0 Started.")
+    log_info("Server v3.1 Fixed-URL Started.")
     app.run(host='0.0.0.0', port=5000, threaded=True)
