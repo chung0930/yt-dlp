@@ -30,22 +30,28 @@ def log_info(msg):
     logging.info(msg)
     print(f"INFO: {msg}")
 
-# 設定 Termux 環境變數路徑
+# 設定 Termux 環境變數路徑 (這對所有 Termux 指令至關重要)
 TERMUX_BIN = "/data/data/com.termux/files/usr/bin"
 os.environ["PATH"] = f"{TERMUX_BIN}:{os.environ.get('PATH', '')}"
 
-# 啟動時自動檢查並修復依賴
-def fix_dependencies():
+# 啟動時自動檢查依賴
+def check_dependencies():
     deps = ["yt-dlp", "ffmpeg", "ffprobe", "zip"]
     for dep in deps:
         if shutil.which(dep) is None:
-            log_info(f"Missing {dep}, attempting to install...")
-            try:
-                subprocess.run(["pkg", "install", dep, "-y"], check=True)
-            except:
-                log_error(f"Failed to auto-install {dep}. Please run: pkg install {dep} -y")
+            log_info(f"Checking {dep} in Termux path...")
+            if not os.path.exists(os.path.join(TERMUX_BIN, dep)):
+                log_error(f"Missing {dep}. Please run: pkg install {dep} -y")
+    
+    # 檢查 Python 套件
+    try:
+        import flask
+        import flask_cors
+        import yt_dlp
+    except ImportError as e:
+        log_error(f"Missing Python package: {e}. Please run: pip install flask flask-cors yt-dlp")
 
-fix_dependencies()
+check_dependencies()
 
 # 自動清理任務 (每天凌晨 3 點執行)
 def auto_cleanup():
@@ -171,7 +177,7 @@ def download_task(task_id, mode, url):
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    return jsonify({'status': 'online', 'version': '3.1 Fixed-URL'})
+    return jsonify({'status': 'online', 'version': '3.2 Stable'})
 
 @app.route('/download', methods=['POST'])
 def start_download():
@@ -207,5 +213,5 @@ def get_error_report():
 if __name__ == "__main__":
     if not os.path.exists(BASE_PATH): os.makedirs(BASE_PATH)
     if not os.path.exists(TEMP_PATH): os.makedirs(TEMP_PATH)
-    log_info("Server v3.1 Fixed-URL Started.")
+    log_info("Server v3.2 Stable Started.")
     app.run(host='0.0.0.0', port=5000, threaded=True)
